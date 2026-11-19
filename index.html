@@ -1,0 +1,132 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kamera Buku Tamu</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f6f9;
+      text-align: center;
+      padding: 20px;
+      color: #14243a;
+    }
+    .box {
+      max-width: 550px;
+      margin: auto;
+      background: white;
+      padding: 20px;
+      border-radius: 15px;
+    }
+    video {
+      width: 100%;
+      border-radius: 12px;
+      background: #14243a;
+    }
+    button {
+      padding: 13px 20px;
+      margin: 8px 4px;
+      border: 0;
+      border-radius: 8px;
+      background: #14243a;
+      color: white;
+      cursor: pointer;
+    }
+    #status { font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h2>Foto Selfie Pengunjung</h2>
+    <p id="status">Mengaktifkan kamera...</p>
+
+    <video id="video" autoplay playsinline></video>
+    <canvas id="canvas" hidden></canvas>
+
+    <div>
+      <button onclick="capture()">Ambil Foto</button>
+      <button onclick="closeCamera()">Tutup</button>
+    </div>
+  </div>
+
+<script>
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('canvas');
+  const statusText = document.getElementById('status');
+
+  let stream = null;
+
+  async function startCamera() {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: 'user',
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        audio: false
+      });
+
+      video.srcObject = stream;
+      await video.play();
+
+      statusText.textContent = 'Kamera siap. Silakan ambil foto.';
+    } catch (error) {
+      statusText.textContent =
+        'Kamera gagal dibuka: ' + error.name + ' - ' + error.message;
+    }
+  }
+
+  function capture() {
+    if (!stream || !video.videoWidth) {
+      alert('Kamera belum siap.');
+      return;
+    }
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    canvas.getContext('2d').drawImage(
+      video, 0, 0, canvas.width, canvas.height
+    );
+
+    const photo = canvas.toDataURL('image/jpeg', 0.7);
+
+    if (photo.length > 4 * 1024 * 1024) {
+      alert('Foto terlalu besar. Silakan ambil ulang.');
+      return;
+    }
+
+    if (window.opener && !window.opener.closed) {
+      window.opener.postMessage({
+        type: 'BOOKU_TAMU_PHOTO',
+        photo: photo
+      }, '*');
+
+      statusText.textContent = 'Foto berhasil dikirim.';
+      stopStream();
+    } else {
+      alert('Halaman Buku Tamu tidak ditemukan.');
+    }
+  }
+
+  function stopStream() {
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      stream = null;
+    }
+  }
+
+  function closeCamera() {
+    stopStream();
+    window.close();
+  }
+
+  window.addEventListener('beforeunload', stopStream);
+
+  startCamera();
+</script>
+</body>
+</html>
